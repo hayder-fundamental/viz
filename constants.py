@@ -1,5 +1,3 @@
-
-
 class MetricNames:
     _eip_stub = "evaluation_Improvement probability over TabPFNv2fixed/score at  -"
     # works
@@ -20,6 +18,9 @@ class MetricNames:
         eip_acc_1024,
         eip_acc_7500,
     ]
+
+    t_huber = "training/HuberLoss"
+    e_huber = "evaluation/HuberLoss"
 
 
 class RunIDs:
