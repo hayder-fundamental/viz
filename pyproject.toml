@@ -1,0 +1,25 @@
+[project]
+name = "viz"
+version = "0.1.0"
+description = "visulasation"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib",
+    "pandas",
+    "tqdm",
+    "wandb",
+]
+
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+]
+
+format = [
+    "flake8",
+    "mypy",
+    "pylint", 
+    "ruff==0.11.13",
+]
