@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tabicl Run Tracker"""
 
 import logging
@@ -7,78 +6,33 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 import core
+import constants
 
 
-class MetricNames:
-    # works
-    t_cross_entropy = "training/CrossEntropyLoss"
+def select_tabicl_runs(run):
+    return run.id in constants.RunIDs.tabicl_run_ids
 
-    eip_acc = (
-        "evaluation_Improvement probability over TabPFNv2fixed/score at  - accuracy"
+
+def running_or_baseline(run):
+    return run.state == "running" or run.id in constants.RunIDs.woj_tabicl_run_ids
+
+
+def wojtek_params(run):
+    return (
+        "woj params" in run.name.lower()
+        or run.id in constants.RunIDs.woj_tabicl_run_ids
     )
-    eip_acc_32 = "evaluation_Improvement probability over TabPFNv2fixed/score at  - accuracy with 32 num_context"
-    eip_acc_128 = "evaluation_Improvement probability over TabPFNv2fixed/score at  - accuracy with 128 num_context"
-    eip_acc_1024 = "evaluation_Improvement probability over TabPFNv2fixed/score with at  - accuracy 1024 num_context"
-    eip_acc_7500 = "evaluation_Improvement probability over TabPFNv2fixed/score with at  - accuracy 7500 num_context"
-
-    eips = [
-        eip_acc,
-        eip_acc_32,
-        eip_acc_128,
-        eip_acc_1024,
-        eip_acc_7500,
-    ]
-
-
-class select:
-    woj_tabicl_run_ids = [
-        # Simplified Tabicl V0
-        "li9vmts8",
-        # SimpleTabICL model ctd @lr=1e-4 + rng fix, smaller LR restart
-        "4ij90pn6",
-    ]
-    tabicl_run_ids = [
-        "1pmir581",
-        "fguyfgu3",
-        "91xwo8vq",
-        "bk6hy1u8",
-        "fipt4khi",
-        "fnemi4d4",
-        "4qlafc3f",
-        "3kc8angw",
-        "pkq7w59y",
-        "l3vdkvcc",
-        "o8dxdwnj",
-        "vzjjudsp",
-        "f8ly6enm",
-        *woj_tabicl_run_ids,
-    ]
-
-    def my_runs(run):
-        return run.user.name == "Hayder Elesedy"
-
-    def tabicl_runs(run):
-        return run.id in select.tabicl_run_ids
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    def running_or_baseline(run):
-        return run.state == "running" or run.id in select.woj_tabicl_run_ids
-
-    def wojtek_params(run):
-        return "woj params" in run.name.lower() or run.id in select.woj_tabicl_run_ids
-
     # Configs
     class cfg:
         download_path = "research/training_setup"
         n_samples = 10_000
-        window_size = 168  # smoothing
-        WOJ_RUN = "Simplified TabICL v0"
-        select_run = select.tabicl_runs
-        select_metrics = [MetricNames.t_cross_entropy, *MetricNames.eips]
+        select_metrics = [constants.MetricNames.t_cross_entropy, *constants.MetricNames.eips]
 
     # -------------------------
 
@@ -88,7 +42,7 @@ if __name__ == "__main__":
     runs = downloader.fetch_runs(
         path=cfg.download_path,
         timeout=30,
-        run_filter=cfg.select_run,
+        run_filter=select_tabicl_runs,
     )
     logger.info("Download run data.")
     run_data = downloader.fetch_history(runs, n_samples=cfg.n_samples)
@@ -129,26 +83,26 @@ if __name__ == "__main__":
     line_gen = core.LineGenerator(runs, data_df)
 
     line_configs = {
-        f"Running: {MetricNames.t_cross_entropy}": dict(
-            plot_metric=MetricNames.t_cross_entropy,
+        f"Running: {constants.MetricNames.t_cross_entropy}": dict(
+            plot_metric=constants.MetricNames.t_cross_entropy,
             window=1000,
             run_filter=running_or_baseline,
             min_periods=1,
         ),
-        f"Running: {MetricNames.eip_acc}": dict(
-            plot_metric=MetricNames.eip_acc,
+        f"Running: {constants.MetricNames.eip_acc}": dict(
+            plot_metric=constants.MetricNames.eip_acc,
             window=5000,
             run_filter=running_or_baseline,
             min_periods=1,
         ),
-        f"Woj Params: {MetricNames.t_cross_entropy}": dict(
-            plot_metric=MetricNames.t_cross_entropy,
+        f"Woj Params: {constants.MetricNames.t_cross_entropy}": dict(
+            plot_metric=constants.MetricNames.t_cross_entropy,
             window=1000,
             run_filter=wojtek_params,
             min_periods=1,
         ),
-        f"Woj Params: {MetricNames.eip_acc}": dict(
-            plot_metric=MetricNames.eip_acc,
+        f"Woj Params: {constants.MetricNames.eip_acc}": dict(
+            plot_metric=constants.MetricNames.eip_acc,
             window=5000,
             run_filter=wojtek_params,
             min_periods=1,
