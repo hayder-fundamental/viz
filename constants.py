@@ -1,14 +1,17 @@
+
+
 class MetricNames:
+    _eip_stub = "evaluation_Improvement probability over TabPFNv2fixed/score at  -"
     # works
     t_cross_entropy = "training/CrossEntropyLoss"
 
     eip_acc = (
         "evaluation_Improvement probability over TabPFNv2fixed/score at  - accuracy"
     )
-    eip_acc_32 = "evaluation_Improvement probability over TabPFNv2fixed/score at  - accuracy with 32 num_context"
-    eip_acc_128 = "evaluation_Improvement probability over TabPFNv2fixed/score at  - accuracy with 128 num_context"
-    eip_acc_1024 = "evaluation_Improvement probability over TabPFNv2fixed/score with at  - accuracy 1024 num_context"
-    eip_acc_7500 = "evaluation_Improvement probability over TabPFNv2fixed/score with at  - accuracy 7500 num_context"
+    eip_acc_32 = f"{_eip_stub} accuracy with 32 num_context"
+    eip_acc_128 = f"{_eip_stub} accuracy with 128 num_context"
+    eip_acc_1024 = f"{_eip_stub} accuracy with 1024 num_context"
+    eip_acc_7500 = f"{_eip_stub} accuracy with 7500 num_context"
 
     eips = [
         eip_acc,
@@ -42,4 +45,3 @@ class RunIDs:
         "f8ly6enm",
         *woj_tabicl_run_ids,
     ]
-
