@@ -62,20 +62,6 @@ if __name__ == "__main__":
         entity = "research"
         project = "training_setup"
     assert not all(d.empty for d in data), "All dataframes empty"
-
-    # Checking all nan columns
-    # -------------------------
-    nan_col_runs = []
-    for r, d in zip(runs, data):
-        nan_cols = d.columns[d.isna().all(axis=0)]
-        if not nan_cols.empty:
-            nan_col_runs.append(r.name, nan_cols.tolist())
-
-    if nan_col_runs:
-        print("Runs with all NaN cloumns:")
-    for name, cols in nan_col_runs:
-        print(name, cols)
-
     # -------------------------
 
     logger.info("Normalise indices of DataFrames.")
