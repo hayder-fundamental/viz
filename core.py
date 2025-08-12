@@ -10,7 +10,6 @@ import wandb
 _LineGeneratorYieldType = tuple[
     wandb.apis.public.Run,
     tuple[pd.Series, pd.Series],
-    dict[str, typing.Any],
 ]
 _RunFilterType = typing.Callable[wandb.apis.public.Run, bool]
 
@@ -104,13 +103,13 @@ class LineGenerator:
                 to_plot = self.smooth(
                     raw, window=window, min_periods=min_periods, **smooth_kwds
                 )
-                yield run, (to_plot.index, to_plot), dict(label=run.name)
+                yield run, (to_plot.index, to_plot)
 
 
 def plot_lines(lines: typing.Iterable[_LineGeneratorYieldType], title: str):
     fig, ax = plt.subplots(1)
-    for _, args, kwargs in lines:
-        ax.plot(*args, **kwargs)
+    for run, args in lines:
+        ax.plot(*args, label=run.name)
     ax.set_title(title)
     ax.legend(loc="best")
     return fig, ax
