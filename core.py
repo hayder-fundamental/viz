@@ -109,7 +109,8 @@ class LineGenerator:
 def plot_lines(lines: typing.Iterable[_LineGeneratorYieldType], title: str):
     fig, ax = plt.subplots(1)
     for run, args in lines:
-        ax.plot(*args, label=run.name)
+        stub = "(*) " if run.state == "running" else ""
+        ax.plot(*args, label=stub + run.name)
     ax.set_title(title)
     ax.legend(loc="best")
     return fig, ax
