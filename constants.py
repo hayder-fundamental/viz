@@ -1,3 +1,9 @@
+class Tags:
+    classification = "classification"
+    regression = "regression"
+    ms4_sota = "Hayder::MS4-SOTA"
+
+
 class MetricNames:
     _eip_stub = "evaluation_Improvement probability over TabPFNv2fixed/score at  -"
     # works
@@ -11,7 +17,7 @@ class MetricNames:
     eip_acc_1024 = f"{_eip_stub} accuracy with 1024 num_context"
     eip_acc_7500 = f"{_eip_stub} accuracy with 7500 num_context"
 
-    eips = [
+    eip_accs = [
         eip_acc,
         eip_acc_32,
         eip_acc_128,
@@ -19,6 +25,7 @@ class MetricNames:
         eip_acc_7500,
     ]
 
+    eip_mse = "evaluation_Improvement probability over TabPFNv2fixed/score at  - mse"
     t_huber = "training/HuberLoss"
     e_huber = "evaluation/HuberLoss"
 

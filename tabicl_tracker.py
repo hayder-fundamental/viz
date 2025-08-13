@@ -32,7 +32,7 @@ if __name__ == "__main__":
     class cfg:
         download_path = "research/training_setup"
         n_samples = 10_000
-        select_metrics = [constants.MetricNames.t_cross_entropy, *constants.MetricNames.eips]
+        select_metrics = [constants.MetricNames.t_cross_entropy, *constants.MetricNames.eip_accs]
 
     # -------------------------
 
