@@ -28,13 +28,10 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    # Configs
     class cfg:
         download_path = "research/training_setup"
         n_samples = 10_000
         select_metrics = [constants.MetricNames.t_cross_entropy, *constants.MetricNames.eip_accs]
-
-    # -------------------------
 
     logger.info("Login.")
     downloader = core.HistoryDownloader()
@@ -48,21 +45,15 @@ if __name__ == "__main__":
     run_data = downloader.fetch_history(runs, n_samples=cfg.n_samples)
 
     logger.info("Basic checks.")
-    # -------------------------
+
     # Selecting columns because some could be missing from some runs.
     data = []
-    for run, df in zip(runs, run_data):
+    for df in run_data:
         present = [s for s in cfg.select_metrics if s in df.columns]
-        if missing := set(cfg.select_metrics) - set(df.columns):
-            print(f"Missing columns for {run.name}")
-            print(missing)
         selected = df.set_index("_step")[present]
         data.append(selected)
 
-        entity = "research"
-        project = "training_setup"
     assert not all(d.empty for d in data), "All dataframes empty"
-    # -------------------------
 
     logger.info("Normalise indices of DataFrames.")
     data_df = pd.concat({r.name: d for r, d in zip(runs, data)}, axis=1).sort_index()
