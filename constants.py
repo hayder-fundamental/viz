@@ -1,6 +1,9 @@
 class Tags:
     classification = "classification"
     regression = "regression"
+    relevant = "Hayder::relevant"
+
+    # TODO(HE): move this w/ refactor
     ms4_sota = "Hayder::MS4-SOTA"
 
 
@@ -28,28 +31,3 @@ class MetricNames:
     eip_mse = "evaluation_Improvement probability over TabPFNv2fixed/score at  - mse"
     t_huber = "training/HuberLoss"
     e_huber = "evaluation/HuberLoss"
-
-
-class RunIDs:
-    woj_tabicl_run_ids = [
-        # Simplified Tabicl V0
-        "li9vmts8",
-        # SimpleTabICL model ctd @lr=1e-4 + rng fix, smaller LR restart
-        "4ij90pn6",
-    ]
-    tabicl_run_ids = [
-        "1pmir581",
-        "fguyfgu3",
-        "91xwo8vq",
-        "bk6hy1u8",
-        "fipt4khi",
-        "fnemi4d4",
-        "4qlafc3f",
-        "3kc8angw",
-        "pkq7w59y",
-        "l3vdkvcc",
-        "o8dxdwnj",
-        "vzjjudsp",
-        "f8ly6enm",
-        *woj_tabicl_run_ids,
-    ]
