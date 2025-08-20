@@ -1,3 +1,4 @@
+import abc
 import asyncio
 import concurrent.futures
 import typing
@@ -12,6 +13,34 @@ _LineGeneratorYieldType = tuple[
     tuple[pd.Series, pd.Series],
 ]
 _RunFilterType = typing.Callable[wandb.apis.public.Run, bool]
+
+_REGISTRY = {}
+
+
+# This pattern of populating the registry is just a bit of fun.
+# On the one hand you can't see all the keys in one place, but
+# on the other you don't need to modify core code to be able to run
+# your own config.
+class DashboardConfig(abc.ABC):
+    download_path: str
+    read_timeout: int
+
+    def __init_subclass__(cls, name: str, **kwargs):
+        super().__init_subclass__(**kwargs)
+        _REGISTRY[name] = cls
+
+    @abc.abstractmethod
+    def run_filter(self, run: wandb.apis.public.Run) -> bool:
+        pass
+
+
+def get_config(name: str) -> DashboardConfig:
+    try:
+        return _REGISTRY[name]()
+    except KeyError:
+        raise ValueError(
+            f"Config with name {name} not found.\nHave configs:\n{sorted(_REGISTRY.keys())}."
+        )
 
 
 class HistoryDownloader:
@@ -114,3 +143,9 @@ def plot_lines(lines: typing.Iterable[_LineGeneratorYieldType], title: str):
     ax.set_title(title)
     ax.legend(loc="best")
     return fig, ax
+
+
+# TODO(HE): What's a better way of doing this?
+# Need to import configs here to compile the classes
+# and populate the registry.
+import configs  # noqa: F401, E402, E501  # pylint: disable=unused-import, wrong-import-position
