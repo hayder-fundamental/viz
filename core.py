@@ -10,7 +10,7 @@ import wandb
 
 _LineGeneratorYieldType = tuple[
     wandb.apis.public.Run,
-    tuple[pd.Series, pd.Series],
+    tuple[pd.Index, pd.Series],
 ]
 _RunFilterType = typing.Callable[wandb.apis.public.Run, bool]
 
