@@ -9,6 +9,20 @@ import pandas as pd
 import core
 import constants
 
+
+class cfg:
+    download_path = "research/training_setup"
+    n_samples = 1_000_000
+    read_timout = 60
+    select_metrics = [
+        constants.MetricNames.t_cross_entropy,
+        constants.MetricNames.t_huber,
+        constants.MetricNames.e_huber,
+        *constants.MetricNames.eip_accs,
+        constants.MetricNames.eip_mse,
+    ]
+
+
 # https://fundamental.wandb.io/research/training_setup/runs/t53dts72/overview
 BASELINE_CLF_RUN_ID = "t53dts72"
 # https://fundamental.wandb.io/research/training_setup/runs/0fxigprp/overview
@@ -41,24 +55,13 @@ def reg_runs(run: wandb.apis.public.Run) -> bool:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-
-    class cfg:
-        download_path = "research/training_setup"
-        n_samples = 1_000_000
-        select_metrics = [
-            constants.MetricNames.t_cross_entropy,
-            constants.MetricNames.t_huber,
-            constants.MetricNames.e_huber,
-            *constants.MetricNames.eip_accs,
-            constants.MetricNames.eip_mse,
-        ]
-
     logging.info("Login.")
     downloader = core.HistoryDownloader()
     logging.info("Download runs.")
     runs = downloader.fetch_runs(
-        path=cfg.download_path, timeout=30, run_filter=select_sota_runs
+        path=cfg.download_path, timeout=cfg.read_timout, run_filter=select_sota_runs
     )
+    assert False
     logging.info("Download run data.")
     run_data = downloader.fetch_history(runs, n_samples=cfg.n_samples)
 
