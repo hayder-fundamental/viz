@@ -1,10 +1,13 @@
 import abc
 import asyncio
 import concurrent.futures
+import os
 import typing
+import warnings
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import platformdirs
 import tqdm.asyncio
 import wandb
 
@@ -51,6 +54,8 @@ class HistoryDownloader:
         api_key: str | None = None,
     ):
         wandb.login(host="https://fundamental.wandb.io", key=api_key)
+        self.cache_dir = os.path.join(platformdirs.user_cache_dir(), "viz", "run_data")
+        os.makedirs(self.cache_dir, exist_ok=True)
 
     def fetch_runs(
         self,
@@ -66,32 +71,71 @@ class HistoryDownloader:
         all_runs = api.runs(path, filters=None, per_page=50)
         return [run for run in all_runs if run_filter(run)]
 
-    # TODO(HE): It's possible to add in a switch to get full history
-    # instead of sampling but
-    # it requires a little further work and we aren't using it atm
-    # it would use run.scan_history
-    def fetch_history(
+    def get_cache_path(self, run: wandb.apis.public.Run) -> str:
+        return os.path.join(self.cache_dir, f"{run.id}.csv")
+
+    def clear_cache(self, *runs: wandb.apis.public.Run):
+        for run in runs:
+            try:
+                os.remove(self.get_cache_path(run))
+            except FileNotFoundError:
+                pass
+
+    def fetch_history(self, run: wandb.apis.public.Run) -> pd.DataFrame:
+        """Fetch entire history for single run and cache results.
+
+        Loads data from cache if exists.
+
+        Args:
+            run (wandb.apis.public.Run): The run.
+
+        Returns:
+            pd.DataFrame: The history.
+        """
+        run_data_path = self.get_cache_path(run)
+        cached = (
+            pd.read_csv(run_data_path, index_col=0)
+            if os.path.exists(run_data_path)
+            else pd.DataFrame()
+        )
+        try:
+            start_step = cached["_step"].max() + 1
+        except KeyError:
+            start_step = 0
+
+        new_history = pd.DataFrame(
+            list(run.scan_history(min_step=start_step, max_step=None))
+        ).map(lambda x: float("nan") if x is None else x)
+        with warnings.catch_warnings():
+            # Pandas gives a warning about behaviour on empty DF concat,
+            # but it seems fine. See this issue:
+            # https://github.com/pandas-dev/pandas/issues/55928.
+            warnings.filterwarnings("ignore", category=FutureWarning)
+            data = pd.concat([cached, new_history], axis=0).reset_index(drop=True)
+        if not data.empty:
+            data.to_csv(run_data_path)
+        return data
+
+    def fetch_histories(
         self,
         runs: typing.Iterable[wandb.apis.public.Run],
-        n_samples: int,
-        keys: list[str] | None = None,
+        max_threads: int | None = None,
     ) -> list[pd.DataFrame]:
-        def fetch_single(run: wandb.apis.public.Run) -> pd.DataFrame:
-            return run.history(samples=n_samples, keys=keys)
-
+        # TODO(HE): Enforce this.
+        # Runs must not contain duplicates! Could make thread issue in cache read.
         async def download(
             executor: concurrent.futures.ThreadPoolExecutor,
         ) -> list[pd.DataFrame]:
             loop = asyncio.get_running_loop()
             async_futures = [
-                loop.run_in_executor(executor, lambda: fetch_single(run))
+                loop.run_in_executor(executor, lambda: self.fetch_history(run))
                 for run in runs
             ]
             return await tqdm.asyncio.tqdm.gather(
                 *async_futures, desc="Fetching run data."
             )
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
             return asyncio.run(download(executor))
 
 
