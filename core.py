@@ -74,12 +74,22 @@ class HistoryDownloader:
     def get_cache_path(self, run: wandb.apis.public.Run) -> str:
         return os.path.join(self.cache_dir, f"{run.id}.csv")
 
-    def clear_cache(self, *runs: wandb.apis.public.Run):
+    def clear_cache(self, runs: wandb.apis.public.Run | list[wandb.apis.public.Run]):
+        if not isinstance(runs, list):
+            runs = [runs]
         for run in runs:
             try:
                 os.remove(self.get_cache_path(run))
             except FileNotFoundError:
                 pass
+
+    def read_cache(self, run: wandb.apis.public.Run) -> pd.DataFrame:
+        run_data_path = self.get_cache_path(run)
+        return (
+            pd.read_csv(run_data_path, index_col=0)
+            if os.path.exists(run_data_path)
+            else pd.DataFrame()
+        )
 
     def fetch_history(self, run: wandb.apis.public.Run) -> pd.DataFrame:
         """Fetch entire history for single run and cache results.
@@ -92,12 +102,7 @@ class HistoryDownloader:
         Returns:
             pd.DataFrame: The history.
         """
-        run_data_path = self.get_cache_path(run)
-        cached = (
-            pd.read_csv(run_data_path, index_col=0)
-            if os.path.exists(run_data_path)
-            else pd.DataFrame()
-        )
+        cached = self.read_cache(run)
         try:
             start_step = cached["_step"].max() + 1
         except KeyError:
@@ -113,7 +118,7 @@ class HistoryDownloader:
             warnings.filterwarnings("ignore", category=FutureWarning)
             data = pd.concat([cached, new_history], axis=0).reset_index(drop=True)
         if not data.empty:
-            data.to_csv(run_data_path)
+            data.to_csv(self.get_cache_path(run))
         return data
 
     def fetch_histories(
