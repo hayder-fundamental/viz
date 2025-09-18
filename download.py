@@ -70,7 +70,7 @@ if __name__ == "__main__":
     runs = downloader.fetch_runs(
         path=cfg.download_path,
         timeout=cfg.read_timeout,
-        query_filter=cfg.query_filter,
+        query_filter=cfg.query_filter(),
         run_filter=cfg.run_filter(),
     )
     logging.info("Collected runs with ids %s", [r.id for r in runs])
