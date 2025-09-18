@@ -5,9 +5,12 @@ description = "visulasation"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "ipywidgets>=8.1.7",
+    "jupyter>=1.1.1",
     "matplotlib",
     "pandas",
     "platformdirs>=4.3.8",
+    "pytest>=8.4.1",
     "tqdm",
     "wandb",
 ]
