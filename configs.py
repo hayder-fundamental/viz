@@ -5,69 +5,73 @@ import wandb
 import core
 
 
-class TabICL(core.DashboardConfig, name="tabicl"):
-    tags = {"Hayder::tabicl-model", constants.Tags.relevant}
-
-    download_path = "research/training_setup"
-    n_samples = 10_000_000
+class TabICLEval(core.DownloadConfig, name="tabicl-eval"):
+    download_path = "research/evaluating_our_models"
     read_timeout = 120
-    select_metrics = [
-        constants.MetricNames.t_cross_entropy,
-        *constants.MetricNames.eip_accs,
+    run_ids = [
+        # 19999
+        "9xwqr7yf",
+        "edd713aq",  ## martas, not finished
+        "eq8eovmk",
+        "eak0sdnb",
+        "swgqhu8z",
+        # 89999
+        # "qcb1qlru",
+        # "2rtjgeb0",
+        # "uuv8g3q4",
     ]
+
+    def run_filter(self, run):
+        return run.id in self.run_ids
+
+
+class TabICLReproduction(core.DownloadConfig, name="tabicl-reproduction"):
+    download_path = "research/training_setup"
+    read_timeout = 120
 
     baseline_tabicl_run_ids = [
         # Simplified Tabicl V0
         "li9vmts8",
-        # SimpleTabICL model ctd @lr=1e-4 + rng fix, smaller LR restart
+        # # SimpleTabICL model ctd @lr=1e-4 + rng fix, smaller LR restart
         "4ij90pn6",
+        "mpbdd3vp",  # FTM tabicl class only (old data, etc.)
+        "xdmbkknm",  # simplified tabicl rerun
     ]
+
+    query_filter = {"id": {"$regex": "|".join(baseline_tabicl_run_ids)}}
 
     def run_filter(self, run):
-        return (
-            set(run.tags).issuperset(self.tags)
-            or run.id in self.baseline_tabicl_run_ids
-        )
-
-    def line_configs(self):
-        return {
-            f"Running: {constants.MetricNames.t_cross_entropy}": dict(
-                plot_metric=constants.MetricNames.t_cross_entropy,
-                window=1000,
-                min_periods=1,
-            ),
-            f"Running: {constants.MetricNames.eip_acc}": dict(
-                plot_metric=constants.MetricNames.eip_acc,
-                window=5000,
-                min_periods=1,
-            ),
-            # f"Woj Params: {constants.MetricNames.t_cross_entropy}": dict(
-            # plot_metric=constants.MetricNames.t_cross_entropy,
-            # window=1000,
-            # run_filter=self.wojtek_params,
-            # min_periods=1,
-            # ),
-            # f"Woj Params: {constants.MetricNames.eip_acc}": dict(
-            # plot_metric=constants.MetricNames.eip_acc,
-            # window=5000,
-            # run_filter=self.wojtek_params,
-            # min_periods=1,
-            # ),
-        }
+        return True
 
 
-class SOTA(core.DashboardConfig, name="sota"):
+class TabICL(core.DownloadConfig, name="tabicl"):
+    tags = ["Hayder::tabicl-model", constants.Tags.relevant]
+
+    download_path = "research/training_setup"
+    read_timeout = 120
+
+    def query_filter(self) -> core.QueryFilterType:
+        return {"tags": {"$all": self.tags}}
+
+    # def line_configs(self):
+    # return {
+    # f"Running: {constants.MetricNames.t_cross_entropy}": dict(
+    # plot_metric=constants.MetricNames.t_cross_entropy,
+    # window=1000,
+    # min_periods=1,
+    # ),
+    # f"Running: {constants.MetricNames.eip_acc}": dict(
+    # plot_metric=constants.MetricNames.eip_acc,
+    # window=15000,
+    # min_periods=1,
+    # ),
+    # }
+
+
+class SOTA(core.DownloadConfig, name="sota"):
     tags = {"Hayder::MS4-SOTA"}
     download_path = "research/training_setup"
-    n_samples = 1_000_000
     read_timeout = 120
-    select_metrics = [
-        constants.MetricNames.t_cross_entropy,
-        constants.MetricNames.t_huber,
-        constants.MetricNames.e_huber,
-        *constants.MetricNames.eip_accs,
-        constants.MetricNames.eip_mse,
-    ]
 
     # https://fundamental.wandb.io/research/training_setup/runs/t53dts72/overview
     BASELINE_CLF_RUN_ID = "t53dts72"
