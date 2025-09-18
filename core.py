@@ -1,9 +1,8 @@
 import abc
-import asyncio
 import concurrent.futures
+import logging
 import os
 import typing
-import warnings
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -11,20 +10,28 @@ import platformdirs
 import tqdm.asyncio
 import wandb
 
+logger = logging.getLogger(__name__)
+
 _LineGeneratorYieldType = tuple[
     wandb.apis.public.Run,
     tuple[pd.Index, pd.Series],
 ]
-_RunFilterType = typing.Callable[wandb.apis.public.Run, bool]
+QueryFilterType = dict[str, "list[QueryFilterType] | QueryFilterType | str"]
+RunFilterType = typing.Callable[[wandb.apis.public.Run], bool]
 
 _REGISTRY = {}
+
+# TODO(HE): Update LineConfigs and plotting functionality
+# TODO(HE): clean up exec async function (maybe use in fetch histories...?)
 
 
 # This pattern of populating the registry is just a bit of fun.
 # On the one hand you can't see all the keys in one place, but
 # on the other you don't need to modify core code to be able to run
 # your own config.
-class DashboardConfig(abc.ABC):
+class DownloadConfig(abc.ABC):
+    """Base class for download configs."""
+
     download_path: str
     read_timeout: int
 
@@ -32,12 +39,39 @@ class DashboardConfig(abc.ABC):
         super().__init_subclass__(**kwargs)
         _REGISTRY[name] = cls
 
-    @abc.abstractmethod
-    def run_filter(self, run: wandb.apis.public.Run) -> bool:
-        pass
+    def query_filter(self) -> QueryFilterType | None:
+        """MongoDB query to give to weights and biases API to filter runs to download.
+
+        See here for usage: https://docs.wandb.ai/ref/python/public-api/api/#method-apiruns.
+        (You may also need to look online for more detail on how to use this syntax.)
+        """
+        return None
+
+    def run_filter(self) -> RunFilterType | None:
+        """Optional callable to filter runs after download, quicker to use a query_filter"""
+        return None
 
 
-def get_config(name: str) -> DashboardConfig:
+def get_config(name: str) -> DownloadConfig:
+    """Retrieve config by name from registry.
+
+    Args:
+        name (str): Name you've given to the config, see usage.
+
+    Returns:
+        DownloadConfig: Retrieved config, subclass of DownloadConfig.
+
+    Raises:
+        ValueError: If the config with `name` not found.
+
+    Usage:
+        When defining the config, one should make the class as
+        ```
+        class MyConfig(core.DownloadConfig, name="my-name"):
+            ...
+        ```
+        Then this class can be retrieved by `get_config("my-name")`.
+    """
     try:
         return _REGISTRY[name]()
     except KeyError:
@@ -47,13 +81,25 @@ def get_config(name: str) -> DashboardConfig:
 
 
 class HistoryDownloader:
-    """Download and filter runs from wandb api."""
-
     def __init__(
         self,
         api_key: str | None = None,
+        _login: bool = True,  # Set to False for testing, so tests don't access wandb.
     ):
-        wandb.login(host="https://fundamental.wandb.io", key=api_key)
+        """Download runs and their history from Weights and Biases API.
+
+        This class implements local caching as CSV so we don't need to
+        re-download old data.
+
+        Initialisation creates a cache directory if it doesn't exist already
+        and logs in to weights and biases.
+
+        Args:
+            api_key (str | None): WandB API key. If None it is detected automatically
+                by `wandb.login`. Default None.
+        """
+        if _login:
+            wandb.login(host="https://fundamental.wandb.io", key=api_key)
         self.cache_dir = os.path.join(platformdirs.user_cache_dir(), "viz", "run_data")
         os.makedirs(self.cache_dir, exist_ok=True)
 
@@ -61,20 +107,55 @@ class HistoryDownloader:
         self,
         path: str,
         timeout: int,
-        run_filter: _RunFilterType = lambda run: True,
+        query_filter: QueryFilterType | None = None,
+        run_filter: RunFilterType | None = None,
+        per_page: int = 50,
     ) -> list[wandb.apis.public.Run]:
+        """Download and filter wanbd runs.
+
+        Thin wrapper around `wandb.apis.public.Api.runs`.
+
+        Args:
+            path (str): Query runs from this path.
+            timeout (int): timeout
+            query_filter (QueryFilterType | None): MongoDB query to filter
+                runs in `wandb.apis.public.Api.runs` call.
+            run_filter (RunFilterType | None): Optional callable to filter
+                runs after download. Faster to use `query_filter` if possible.
+            per_page (int): per_page
+
+        Returns:
+            list[wandb.apis.public.Run]: Downloaded and filtered runs.
+        """
         api = wandb.Api(timeout=timeout)
-        # TODO(HE): This currently fetches all runs, can we filter?
-        # I couldn't get filter by username to work earlier.
-        # TODO(HE): Possible we run into annoyances with the pagination at
-        # some point? Left this at default value.
-        all_runs = api.runs(path, filters=None, per_page=50)
-        return [run for run in all_runs if run_filter(run)]
+        all_runs = api.runs(
+            path,
+            filters=query_filter,
+            per_page=per_page,
+        )
+        return (
+            list(all_runs)
+            if run_filter is not None
+            else list(filter(run_filter, all_runs))
+        )
 
     def get_cache_path(self, run: wandb.apis.public.Run) -> str:
+        """Path to cache location for history of `run`.
+
+        Args:
+            run (wandb.apis.public.Run): The run who's cache you want.
+
+        Returns:
+            str: File name by `run.id` in a platform specific local cache directory.
+        """
         return os.path.join(self.cache_dir, f"{run.id}.csv")
 
     def clear_cache(self, runs: wandb.apis.public.Run | list[wandb.apis.public.Run]):
+        """Delete cached history data for `runs`.
+
+        Args:
+            runs (wandb.apis.public.Run | list[wandb.apis.public.Run]): A run or a list of runs.
+        """
         if not isinstance(runs, list):
             runs = [runs]
         for run in runs:
@@ -84,64 +165,145 @@ class HistoryDownloader:
                 pass
 
     def read_cache(self, run: wandb.apis.public.Run) -> pd.DataFrame:
-        run_data_path = self.get_cache_path(run)
-        return (
-            pd.read_csv(run_data_path, index_col=0)
-            if os.path.exists(run_data_path)
-            else pd.DataFrame()
-        )
+        """Read cached history data for `run`.
 
-    def fetch_history(self, run: wandb.apis.public.Run) -> pd.DataFrame:
+        Args:
+            run (wandb.apis.public.Run): Read history for this run from local cache.
+
+        Returns:
+            pd.DataFrame: pandas DataFrame of run history.
+
+        Raises:
+            ValueError: No cache data found for `run`.
+        """
+        run_data_path = self.get_cache_path(run)
+        if not os.path.exists(run_data_path):
+            raise ValueError(f"No cached data found at path {run_data_path}.")
+        # TODO(HE): Fix bad cache lines
+        logger.debug("Reading cache from %s.", run_data_path)
+        return pd.read_csv(run_data_path, on_bad_lines="warn")
+
+    def write_cache(self, run: wandb.apis.public.Run, df: pd.DataFrame) -> None:
+        """Write to CSV cache for `run`. This overwrites existing cache data.
+
+        We do not write the index of `df`.
+
+        We assume that the data in the cache does not have columns of mixed dtype.
+        For instance, pandas will read ints in a column as strings if the first
+        value of the column is string.
+
+        Args:
+            run (wandb.apis.public.Run): run who's cache you want to write.
+                Cached data lives at `.get_cache_path(run)` locally.
+            df (pd.DataFrame): The data to write. No checks are performed.
+        """
+        cache_path = self.get_cache_path(run)
+        logging.debug("Writing cache at %s.", cache_path)
+        return df.to_csv(cache_path, index=False)
+
+    def fetch_history(
+        self,
+        run: wandb.apis.public.Run,
+        page_size: int = 50,
+        update_cache: bool = True,
+    ) -> pd.DataFrame:
         """Fetch entire history for single run and cache results.
 
-        Loads data from cache if exists.
+        Loads data from cache if it exists, then appends more recent
+        data and saves the cache again.
 
         Args:
             run (wandb.apis.public.Run): The run.
+            page_size (int): Number of rows of history to collect per
+                internal query in `run.scan_history`.
+            update_cache (bool): Whether to update local cached run
+                data with additional data downloaded. Default True.
 
         Returns:
-            pd.DataFrame: The history.
+            pd.DataFrame: History of the run.
         """
-        cached = self.read_cache(run)
-        try:
+        last_history_step = run.lastHistoryStep
+        cache_path = self.get_cache_path(run)
+        if os.path.exists(cache_path):
+            cached = self.read_cache(run)
             start_step = cached["_step"].max() + 1
-        except KeyError:
+            if start_step > last_history_step:
+                logger.debug(
+                    "Cached data has max step %d and run.lastHistoryStep=%d. "
+                    "Nothing to update returning cached data.",
+                    start_step - 1,
+                    last_history_step,
+                )
+                return cached
+        else:
+            logger.debug("No cached data found at %s", cache_path)
+            cached = None
             start_step = 0
 
+        expected_rows = last_history_step - start_step + 1
+
+        logger.debug(
+            "Scan history from step %d with page size %d. Expecting %d new rows.",
+            start_step,
+            page_size,
+            expected_rows,
+        )
         new_history = pd.DataFrame(
-            list(run.scan_history(min_step=start_step, max_step=None))
+            list(
+                run.scan_history(
+                    min_step=start_step,
+                    max_step=None,
+                    page_size=page_size,
+                )
+            )
         ).map(lambda x: float("nan") if x is None else x)
-        with warnings.catch_warnings():
-            # Pandas gives a warning about behaviour on empty DF concat,
-            # but it seems fine. See this issue:
-            # https://github.com/pandas-dev/pandas/issues/55928.
-            warnings.filterwarnings("ignore", category=FutureWarning)
-            data = pd.concat([cached, new_history], axis=0).reset_index(drop=True)
-        if not data.empty:
-            data.to_csv(self.get_cache_path(run))
+
+        # Account for wandb sometimes returning too many rows.
+        logger.debug(
+            "Scan history returned %d new rows, expected "
+            "%d (could change slightly if a step happens "
+            "between logging calls).",
+            new_history.shape[0],
+            expected_rows,
+        )
+        logger.debug("Defensively selecting rows in requested range from result.")
+        new_history = new_history.query("_step>=@start_step")
+
+        data = (
+            new_history
+            if cached is None
+            else pd.concat([cached, new_history], axis=0).reset_index(drop=True)
+        )
+        if update_cache:
+            self.write_cache(run, data)
         return data
 
     def fetch_histories(
         self,
-        runs: typing.Iterable[wandb.apis.public.Run],
+        runs: typing.Sequence[wandb.apis.public.Run],
         max_threads: int | None = None,
+        page_size: int = 50,
+        update_cache: bool = True,
     ) -> list[pd.DataFrame]:
-        # TODO(HE): Enforce this.
-        # Runs must not contain duplicates! Could make thread issue in cache read.
-        async def download(
-            executor: concurrent.futures.ThreadPoolExecutor,
-        ) -> list[pd.DataFrame]:
-            loop = asyncio.get_running_loop()
-            async_futures = [
-                loop.run_in_executor(executor, lambda: self.fetch_history(run))
-                for run in runs
-            ]
-            return await tqdm.asyncio.tqdm.gather(
-                *async_futures, desc="Fetching run data."
-            )
-
+        # Runs must not contain duplicates. Could cause issue in cache read/write.
+        unique_run_ids = {run.id for run in runs}
+        if len(unique_run_ids) < len(runs):
+            raise ValueError("Detected duplicate runs.")
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
-            return asyncio.run(download(executor))
+            return list(
+                tqdm.tqdm(
+                    executor.map(
+                        lambda run: self.fetch_history(
+                            run,
+                            page_size=page_size,
+                            update_cache=update_cache,
+                        ),
+                        runs,
+                    ),
+                    total=len(runs),
+                    desc="Fetching run histories",
+                )
+            )
 
 
 class LineGenerator:
@@ -168,7 +330,7 @@ class LineGenerator:
         self,
         plot_metric: str,
         window: int,
-        run_filter: _RunFilterType = lambda x: True,
+        run_filter: RunFilterType = lambda x: True,
         *,
         min_periods=1,
         **smooth_kwds,
@@ -194,7 +356,7 @@ def plot_lines(lines: typing.Iterable[_LineGeneratorYieldType], title: str):
     return fig, ax
 
 
-# TODO(HE): What's a better way of doing this?
+# TODO(HE): Is there a better way of doing this?
 # Need to import configs here to compile the classes
 # and populate the registry.
 import configs  # noqa: F401, E402, E501  # pylint: disable=unused-import, wrong-import-position
