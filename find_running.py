@@ -1,12 +1,11 @@
 import argparse
 import logging
 
+import constants
 import core
 import utils
 
 EVAL_REGEX = "^[a-z0-9]*_step_[0-9]*_.*"
-EVAL_PATH = "research/evaluating_our_models"
-TRAIN_PATH = "research/training_setup"
 
 
 def cmd_args() -> argparse.Namespace:
@@ -40,27 +39,20 @@ if __name__ == "__main__":
             {"state": "running"},
         ]
     }
-    train_query_filter = {
-        "$and": [
-            {"state": "running"},
-        ]
-    }
     if args.username is not None:
         eval_query_filter["$and"].append({"username": args.username})
-        train_query_filter["$and"].append({"username": args.username})
 
     logging.info("Fetching ongoing eval runs.")
     eval_running = core.fetch_runs(
-        path=EVAL_PATH,
+        path=constants.Paths.EVAL,
         timeout=args.timeout,
         query_filter=eval_query_filter,
     )
 
     logging.info("Fetching ongoing training runs.")
-    train_running = core.fetch_runs(
-        path=TRAIN_PATH,
+    train_running = utils.get_train_running(
+        username=args.username,
         timeout=args.timeout,
-        query_filter=train_query_filter,
     )
 
     eval_names = [run.name for run in eval_running]

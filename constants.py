@@ -4,6 +4,11 @@ import enum
 offline_eval_num_context_probs = [1.0, 0.75818182, 0.24, 0.13636364]
 
 
+class Paths(enum.StrEnum):
+    EVAL = "research/evaluating_our_models"
+    TRAIN = "research/training_setup"
+
+
 class Tags:
     classification = "classification"
     regression = "regression"
