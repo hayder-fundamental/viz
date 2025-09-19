@@ -81,7 +81,42 @@ def get_config(name: str) -> DownloadConfig:
         )
 
 
-class HistoryDownloader:
+def fetch_runs(
+    path: str,
+    timeout: int | None,
+    query_filter: QueryFilterType | None = None,
+    run_filter: RunFilterType | None = None,
+    per_page: int = 50,
+) -> list[wandb.apis.public.Run]:
+    """Download and filter wanbd runs.
+
+    Thin wrapper around `wandb.apis.public.Api.runs`.
+
+    Args:
+        path (str): Query runs from this path.
+        timeout (int | None): timeout for wandb `Api.runs` call.
+            If None, wanbd uses a default value.
+        query_filter (QueryFilterType | None): MongoDB query to filter
+            runs in `wandb.apis.public.Api.runs` call.
+        run_filter (RunFilterType | None): Optional callable to filter
+            runs after download. Faster to use `query_filter` if possible.
+        per_page (int): per_page
+
+    Returns:
+        list[wandb.apis.public.Run]: Downloaded and filtered runs.
+    """
+    api = wandb.Api(timeout=timeout)
+    all_runs = api.runs(
+        path,
+        filters=query_filter,
+        per_page=per_page,
+    )
+    return (
+        list(all_runs) if run_filter is not None else list(filter(run_filter, all_runs))
+    )
+
+
+class HistoryManager:
     def __init__(
         self,
         api_key: str | None = None,
@@ -103,42 +138,6 @@ class HistoryDownloader:
             wandb.login(host="https://fundamental.wandb.io", key=api_key)
         self.cache_dir = os.path.join(platformdirs.user_cache_dir(), "viz", "run_data")
         os.makedirs(self.cache_dir, exist_ok=True)
-
-    def fetch_runs(
-        self,
-        path: str,
-        timeout: int,
-        query_filter: QueryFilterType | None = None,
-        run_filter: RunFilterType | None = None,
-        per_page: int = 50,
-    ) -> list[wandb.apis.public.Run]:
-        """Download and filter wanbd runs.
-
-        Thin wrapper around `wandb.apis.public.Api.runs`.
-
-        Args:
-            path (str): Query runs from this path.
-            timeout (int): timeout
-            query_filter (QueryFilterType | None): MongoDB query to filter
-                runs in `wandb.apis.public.Api.runs` call.
-            run_filter (RunFilterType | None): Optional callable to filter
-                runs after download. Faster to use `query_filter` if possible.
-            per_page (int): per_page
-
-        Returns:
-            list[wandb.apis.public.Run]: Downloaded and filtered runs.
-        """
-        api = wandb.Api(timeout=timeout)
-        all_runs = api.runs(
-            path,
-            filters=query_filter,
-            per_page=per_page,
-        )
-        return (
-            list(all_runs)
-            if run_filter is not None
-            else list(filter(run_filter, all_runs))
-        )
 
     def get_cache_path(self, run: wandb.apis.public.Run) -> str:
         """Path to cache location for history of `run`.
