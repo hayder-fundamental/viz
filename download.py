@@ -2,7 +2,6 @@
 
 import argparse
 import logging
-import typing
 
 import tqdm
 
@@ -11,15 +10,6 @@ import utils
 
 
 def cmd_args() -> argparse.Namespace:
-    def validator_int_strict_positive(argname: str) -> typing.Callable[[str], int]:
-        def validator(value: str) -> int:
-            int_value = int(value)
-            if int_value <= 0:
-                raise ValueError(f"`{argname}` must be strictly positive, got {value}.")
-            return int_value
-
-        return validator
-
     parser = argparse.ArgumentParser("Download data from wandb.")
     parser.add_argument(
         "name",
@@ -38,13 +28,13 @@ def cmd_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--page-size",
-        type=validator_int_strict_positive("--page-size"),
+        type=utils.validator_int_strict_positive("--page-size"),
         help="Number of rows to download per wandb query in `run.scan_history`",
         default=100,
     )
     parser.add_argument(
         "--max-threads",
-        type=validator_int_strict_positive("--max-threads"),
+        type=utils.validator_int_strict_positive("--max-threads"),
         default=1,
         help="Maximum number of concurrent threads for download.",
     )

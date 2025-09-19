@@ -1,4 +1,5 @@
 import argparse
+import typing
 
 import wandb
 
@@ -22,6 +23,19 @@ def add_log_level_arg(parser: argparse.ArgumentParser, default: str) -> None:
         help="Set the logging level of the root logger (default: %(default)s)."
         " Argument is case insensitive.",
     )
+
+
+# TODO(HE): document this properly
+def validator_int_strict_positive(argname: str) -> typing.Callable[[str], int]:
+    """Return a validator to check if an argument is strictly positive."""
+    def validator(value: str) -> int:
+        int_value = int(value)
+        if int_value <= 0:
+            raise ValueError(f"`{argname}` must be strictly positive, got {value}.")
+        return int_value
+
+    return validator
+
 
 
 def get_train_running(
