@@ -7,6 +7,7 @@ import typing
 import tqdm
 
 import core
+import utils
 
 
 def cmd_args() -> argparse.Namespace:
@@ -47,15 +48,9 @@ def cmd_args() -> argparse.Namespace:
         default=1,
         help="Maximum number of concurrent threads for download.",
     )
-    parser.add_argument(
-        "--log-level",
-        type=lambda s: s.upper(),
-        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        default="INFO",
-        help="Set the logging level of the root logger (default: %(default)s)."
-        " Argument is case insensitive.",
-    )
+    utils.add_log_level_arg(parser)
     return parser.parse_args()
+
 
 
 if __name__ == "__main__":
