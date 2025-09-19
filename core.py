@@ -16,6 +16,7 @@ _LineGeneratorYieldType = tuple[
     wandb.apis.public.Run,
     tuple[pd.Index, pd.Series],
 ]
+# TODO(HE): Check this type hint.
 QueryFilterType = dict[str, "list[QueryFilterType] | QueryFilterType | str"]
 RunFilterType = typing.Callable[[wandb.apis.public.Run], bool]
 
@@ -33,7 +34,7 @@ class DownloadConfig(abc.ABC):
     """Base class for download configs."""
 
     download_path: str
-    read_timeout: int
+    read_timeout: int | None
 
     def __init_subclass__(cls, name: str, **kwargs):
         super().__init_subclass__(**kwargs)
