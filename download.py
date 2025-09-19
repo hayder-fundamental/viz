@@ -48,9 +48,8 @@ def cmd_args() -> argparse.Namespace:
         default=1,
         help="Maximum number of concurrent threads for download.",
     )
-    utils.add_log_level_arg(parser)
+    utils.add_log_level_arg(parser, default="info")
     return parser.parse_args()
-
 
 
 if __name__ == "__main__":
@@ -60,9 +59,9 @@ if __name__ == "__main__":
 
     cfg = core.get_config(args.name)
 
-    downloader = core.HistoryDownloader()
+    downloader = core.HistoryManager()
     logging.info("Downloading runs for config %s.", args.name)
-    runs = downloader.fetch_runs(
+    runs = core.fetch_runs(
         path=cfg.download_path,
         timeout=cfg.read_timeout,
         query_filter=cfg.query_filter(),
