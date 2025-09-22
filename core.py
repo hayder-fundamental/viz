@@ -112,7 +112,7 @@ def fetch_runs(
         per_page=per_page,
     )
     return (
-        list(all_runs) if run_filter is not None else list(filter(run_filter, all_runs))
+        list(all_runs) if run_filter is None else list(filter(run_filter, all_runs))
     )
 
 
