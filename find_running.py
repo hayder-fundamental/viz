@@ -1,5 +1,7 @@
 import argparse
+import collections
 import logging
+import typing
 
 import constants
 import core
@@ -32,6 +34,11 @@ def train_run_id_from_eval_id(s: str) -> str:
     return s.split("_")[0]
 
 
+def duplicates(lst: list[typing.Any]) -> list[typing.Any]:
+    counts = collections.Counter(lst)
+    return [k for k, count in counts.items() if count > 1]
+
+
 if __name__ == "__main__":
     args = cmd_args()
     logger = logging.getLogger()
@@ -61,7 +68,9 @@ if __name__ == "__main__":
 
     eval_names = [run.name for run in eval_running]
     train_running_ids = {run.id for run in train_running}
-    trains_with_eval = {train_run_id_from_eval_id(s) for s in eval_names}
+    trains_with_eval = [train_run_id_from_eval_id(s) for s in eval_names]
+    duplicated_evals = duplicates(trains_with_eval)
+    trains_with_eval = set(trains_with_eval)
 
     def print_row(run):
         print(f"{run.name:<110} {run.id:>10}")
@@ -84,3 +93,7 @@ if __name__ == "__main__":
         train_run_id = train_run_id_from_eval_id(run.name)
         if train_run_id not in train_running_ids:
             print_row(run)
+    print()
+    print("Train ids with more than one eval running:")
+    for id_ in duplicated_evals:
+        print(id_)
